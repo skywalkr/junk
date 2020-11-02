@@ -44,6 +44,13 @@ $PackageNames = "Microsoft.549981C3F5F10",
 "Microsoft.ZuneMusic",
 "Microsoft.ZuneVideo"
 
+$FSLogixUri = "https://aka.ms/fslogix_download"
+$OneDriveUri = "https://go.microsoft.com/fwlink/?linkid=2083517"
+$WebRTCUri = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4AQBt"
+$TeamsUri = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.21759/Teams_windows_x64.msi"
+$WVDAgentUri = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RWrmXv"
+$WVDBootLoaderUri = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RWrxrH"
+
 $InstalledPackages = Get-AppxPackage -AllUsers
 $ProvisionedPackages = Get-AppxProvisionedPackage -Online
 
@@ -62,44 +69,40 @@ ForEach ($Package In $InstalledPackages) {
 # Force use of TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# Create temp folder
-New-Item -ItemType Directory "C:\Temp"
-
 # Install FSLogix
-$FSLogix = Invoke-WebRequest "https://aka.ms/fslogix_download" -Method Head -UseBasicParsing
+$FSLogix = Invoke-WebRequest $FSLogixUri -Method Head -UseBasicParsing
 $FSLogixArchive = $FSLogix.BaseResponse.ResponseUri.Segments[$FSLogix.BaseResponse.ResponseUri.Segments.Length - 1]
-Invoke-WebRequest "https://aka.ms/fslogix_download" -outfile "C:\Temp\$FSLogixArchive" -UseBasicParsing
-Expand-Archive -Path "C:\Temp\$FSLogixArchive" -DestinationPath "C:\Temp\$($FSLogixArchive.Replace('.zip',''))"
-Start-Process "C:\Temp\$($FSLogixArchive.Replace('.zip',''))\x64\Release\FSLogixAppsSetup.exe" -ArgumentList '/quiet' -Wait
+Invoke-WebRequest $FSLogixUri -outfile "$PSScriptRoot\$FSLogixArchive" -UseBasicParsing
+Expand-Archive -Path "$PSScriptRoot\$FSLogixArchive" -DestinationPath "$PSScriptRoot\$($FSLogixArchive.Replace('.zip',''))"
+Start-Process "$PSScriptRoot\$($FSLogixArchive.Replace('.zip',''))\x64\Release\FSLogixAppsSetup.exe" -ArgumentList '/quiet' -Wait
 
 # Install OneDrive
-$OneDrive = Invoke-WebRequest "https://go.microsoft.com/fwlink/?linkid=2083517" -Method Head -UseBasicParsing
+$OneDrive = Invoke-WebRequest OneDriveUri -Method Head -UseBasicParsing
 $OneDriveInstaller = $OneDrive.BaseResponse.ResponseUri.Segments[$OneDrive.BaseResponse.ResponseUri.Segments.Length - 1]
-Invoke-WebRequest "https://go.microsoft.com/fwlink/?linkid=2083517" -outfile "C:\Temp\$OneDriveInstaller" -UseBasicParsing
-Start-Process "C:\Temp\$OneDriveInstaller" -ArgumentList '/allusers /quiet' -Wait
+Invoke-WebRequest $OneDriveUri -outfile "$PSScriptRoot\$OneDriveInstaller" -UseBasicParsing
+Start-Process "$PSScriptRoot\$OneDriveInstaller" -ArgumentList '/allusers /quiet' -Wait
 
 # Install WebRTC
-$WebRTC = Invoke-WebRequest "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4AQBt" -Method Head -UseBasicParsing
+$WebRTC = Invoke-WebRequest $WebRTCUri -Method Head -UseBasicParsing
 $WebRTCInstaller = $WebRTC.Headers.'Content-Disposition'.Split("=")[1]
-Invoke-WebRequest "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4AQBt" -outfile "C:\Temp\$WebRTCInstaller" -UseBasicParsing
-Start-Process "C:\Windows\System32\msiexec.exe" -ArgumentList ('/i "C:\Temp\{0}" /l*v "C:\Temp\{0}.log" /quiet' -f $WebRTCInstaller) -Wait
+Invoke-WebRequest $WebRTCUri -outfile "$PSScriptRoot\$WebRTCInstaller" -UseBasicParsing
+Start-Process "msiexec.exe" -ArgumentList ('/i "{0}\{1}" /l*v "{0}\{1}.log" /quiet' -f $PSScriptRoot,$WebRTCInstaller) -Wait
 
 # Install Teams
 New-Item -Path "HKLM:\SOFTWARE\Microsoft\Teams" -Force | New-ItemProperty -Name "IsWVDEnvironment" -Value 1 -PropertyType DWORD
-
-$Teams = Invoke-WebRequest "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.21759/Teams_windows_x64.msi" -Method Head -UseBasicParsing
+$Teams = Invoke-WebRequest $TeamsUri -Method Head -UseBasicParsing
 $TeamsInstaller = $Teams.BaseResponse.ResponseUri.Segments[$Teams.BaseResponse.ResponseUri.Segments.Length - 1]
-Invoke-WebRequest "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.21759/Teams_windows_x64.msi" -outfile "C:\Temp\$TeamsInstaller" -UseBasicParsing
-Start-Process "C:\Windows\System32\msiexec.exe" -ArgumentList ('/i "C:\Temp\{0}" /l*v "C:\Temp\{0}.log" ALLUSER=1 ALLUSERS=1 /quiet' -f $TeamsInstaller) -Wait
+Invoke-WebRequest $TeamsUri -outfile "$PSScriptRoot\$TeamsInstaller" -UseBasicParsing
+Start-Process "msiexec.exe" -ArgumentList ('/i "{0}\{1}" /l*v "{0}\{1}.log" ALLUSER=1 ALLUSERS=1 /quiet' -f $PSScriptRoot,$TeamsInstaller) -Wait
 
 # Install WVD Agent
-$WVDAgent = Invoke-WebRequest "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RWrmXv" -Method Head -UseBasicParsing
+$WVDAgent = Invoke-WebRequest $WVDAgentUri -Method Head -UseBasicParsing
 $WVDAgentInstaller = $WVDAgent.Headers.'Content-Disposition'.Split("=")[1]
-Invoke-WebRequest "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RWrmXv" -outfile "C:\Temp\$WVDAgentInstaller" -UseBasicParsing
-Start-Process "C:\Windows\System32\msiexec.exe" -ArgumentList ('/i "C:\Temp\{0}" /l*v "C:\Temp\{0}.log" REGISTRATIONTOKEN={1} /quiet' -f $WVDAgentInstaller,$RegistrationToken) -Wait
+Invoke-WebRequest $WVDAgentUri -outfile "$PSScriptRoot\$WVDAgentInstaller" -UseBasicParsing
+Start-Process "msiexec.exe" -ArgumentList ('/i "{0}\{1}" /l*v "{0}\{1}.log" REGISTRATIONTOKEN={2} /quiet' -f $PSScriptRoot,$WVDAgentInstaller,$RegistrationToken) -Wait
 
 # Install WVD Bootloader
-$WVDBootloader = Invoke-WebRequest "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RWrxrH" -Method Head -UseBasicParsing
+$WVDBootloader = Invoke-WebRequest $WVDBootLoaderUri -Method Head -UseBasicParsing
 $WVDBootloaderInstaller = $WVDBootloader.Headers.'Content-Disposition'.Split("=")[1]
-Invoke-WebRequest "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RWrxrH" -outfile "C:\Temp\$WVDBootloaderInstaller" -UseBasicParsing
-Start-Process "C:\Windows\System32\msiexec.exe" -ArgumentList ('/i "C:\Temp\{0}" /l*v "C:\Temp\{0}.log" /quiet' -f $WVDBootloaderInstaller) -Wait
+Invoke-WebRequest $WVDBootLoaderUri -outfile "$PSScriptRoot\$WVDBootloaderInstaller" -UseBasicParsing
+Start-Process "msiexec.exe" -ArgumentList ('/i "{0}\{1}" /l*v "{0}\{1}.log" /quiet' -f $PSScriptRoot,$WVDBootloaderInstaller) -Wait
