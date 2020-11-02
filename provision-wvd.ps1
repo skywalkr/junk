@@ -77,7 +77,7 @@ Expand-Archive -Path "$PSScriptRoot\$FSLogixArchive" -DestinationPath "$PSScript
 Start-Process "$PSScriptRoot\$($FSLogixArchive.Replace('.zip',''))\x64\Release\FSLogixAppsSetup.exe" -ArgumentList '/quiet' -Wait
 
 # Install OneDrive
-$OneDrive = Invoke-WebRequest OneDriveUri -Method Head -UseBasicParsing
+$OneDrive = Invoke-WebRequest $OneDriveUri -Method Head -UseBasicParsing
 $OneDriveInstaller = $OneDrive.BaseResponse.ResponseUri.Segments[$OneDrive.BaseResponse.ResponseUri.Segments.Length - 1]
 Invoke-WebRequest $OneDriveUri -outfile "$PSScriptRoot\$OneDriveInstaller" -UseBasicParsing
 Start-Process "$PSScriptRoot\$OneDriveInstaller" -ArgumentList '/allusers /quiet' -Wait
