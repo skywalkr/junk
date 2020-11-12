@@ -3,11 +3,21 @@
         Configures machine for Windows Virtual Desktop.
     .PARAMETER RegistrationToken
         Token used to register virtual machine with session host pool
+    .PARAMETER IncludeOneDrive
+        Whether to install Microsoft OneDrive
+    .PARAMETER IncludeTeams
+        Whether to install Microsoft Teams
 #>
 
 Param (
     [Parameter(Mandatory = $true)]
-    [string]$RegistrationToken    
+    [string]$RegistrationToken,
+
+    [Parameter(Mandatory = $false)]
+    [Switch]$IncludeOneDrive,
+    
+    [Parameter(Mandatory = $false)]
+    [Switch]$IncludeTeams
 )
 
 # Remove unwanted packages
@@ -76,24 +86,28 @@ Invoke-WebRequest $FSLogixUri -outfile "$PSScriptRoot\$FSLogixArchive" -UseBasic
 Expand-Archive -Path "$PSScriptRoot\$FSLogixArchive" -DestinationPath "$PSScriptRoot\$($FSLogixArchive.Replace('.zip',''))"
 Start-Process "$PSScriptRoot\$($FSLogixArchive.Replace('.zip',''))\x64\Release\FSLogixAppsSetup.exe" -ArgumentList '/quiet' -Wait
 
-# Install OneDrive
-$OneDrive = Invoke-WebRequest $OneDriveUri -Method Head -UseBasicParsing
-$OneDriveInstaller = $OneDrive.BaseResponse.ResponseUri.Segments[$OneDrive.BaseResponse.ResponseUri.Segments.Length - 1]
-Invoke-WebRequest $OneDriveUri -outfile "$PSScriptRoot\$OneDriveInstaller" -UseBasicParsing
-Start-Process "$PSScriptRoot\$OneDriveInstaller" -ArgumentList '/allusers /quiet' -Wait
+If ($IncludeOneDrive) {
+    # Install OneDrive
+    $OneDrive = Invoke-WebRequest $OneDriveUri -Method Head -UseBasicParsing
+    $OneDriveInstaller = $OneDrive.BaseResponse.ResponseUri.Segments[$OneDrive.BaseResponse.ResponseUri.Segments.Length - 1]
+    Invoke-WebRequest $OneDriveUri -outfile "$PSScriptRoot\$OneDriveInstaller" -UseBasicParsing
+    Start-Process "$PSScriptRoot\$OneDriveInstaller" -ArgumentList '/allusers /quiet' -Wait
+}
 
-# Install WebRTC
-$WebRTC = Invoke-WebRequest $WebRTCUri -Method Head -UseBasicParsing
-$WebRTCInstaller = $WebRTC.Headers.'Content-Disposition'.Split("=")[1]
-Invoke-WebRequest $WebRTCUri -outfile "$PSScriptRoot\$WebRTCInstaller" -UseBasicParsing
-Start-Process "msiexec.exe" -ArgumentList ('/i "{0}\{1}" /l*v "{0}\{1}.log" /quiet' -f $PSScriptRoot,$WebRTCInstaller) -Wait
+If ($IncludeTeams) {
+    # Install WebRTC
+    $WebRTC = Invoke-WebRequest $WebRTCUri -Method Head -UseBasicParsing
+    $WebRTCInstaller = $WebRTC.Headers.'Content-Disposition'.Split("=")[1]
+    Invoke-WebRequest $WebRTCUri -outfile "$PSScriptRoot\$WebRTCInstaller" -UseBasicParsing
+    Start-Process "msiexec.exe" -ArgumentList ('/i "{0}\{1}" /l*v "{0}\{1}.log" /quiet' -f $PSScriptRoot,$WebRTCInstaller) -Wait
 
-# Install Teams
-New-Item -Path "HKLM:\SOFTWARE\Microsoft\Teams" -Force | New-ItemProperty -Name "IsWVDEnvironment" -Value 1 -PropertyType DWORD
-$Teams = Invoke-WebRequest $TeamsUri -Method Head -UseBasicParsing
-$TeamsInstaller = $Teams.BaseResponse.ResponseUri.Segments[$Teams.BaseResponse.ResponseUri.Segments.Length - 1]
-Invoke-WebRequest $TeamsUri -outfile "$PSScriptRoot\$TeamsInstaller" -UseBasicParsing
-Start-Process "msiexec.exe" -ArgumentList ('/i "{0}\{1}" /l*v "{0}\{1}.log" ALLUSER=1 ALLUSERS=1 /quiet' -f $PSScriptRoot,$TeamsInstaller) -Wait
+    # Install Teams
+    New-Item -Path "HKLM:\SOFTWARE\Microsoft\Teams" -Force | New-ItemProperty -Name "IsWVDEnvironment" -Value 1 -PropertyType DWORD
+    $Teams = Invoke-WebRequest $TeamsUri -Method Head -UseBasicParsing
+    $TeamsInstaller = $Teams.BaseResponse.ResponseUri.Segments[$Teams.BaseResponse.ResponseUri.Segments.Length - 1]
+    Invoke-WebRequest $TeamsUri -outfile "$PSScriptRoot\$TeamsInstaller" -UseBasicParsing
+    Start-Process "msiexec.exe" -ArgumentList ('/i "{0}\{1}" /l*v "{0}\{1}.log" ALLUSER=1 ALLUSERS=1 /quiet' -f $PSScriptRoot,$TeamsInstaller) -Wait
+}
 
 # Install WVD Agent
 $WVDAgent = Invoke-WebRequest $WVDAgentUri -Method Head -UseBasicParsing
